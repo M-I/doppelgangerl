@@ -1,0 +1,21 @@
+* doppelgangerl
+Find duplicates in a directory based on file content.
+
+* Build
+#+BEGIN_SRC sh
+  make
+#+END_SRC
+
+* Usage
+#+BEGIN_SRC erlang
+  DG = doppelgangerl:dedupe("/tmp").
+
+  %% List of duplicates
+  Dupes =proplists:get_value(dupes, DG).
+
+  %% List of files that were skipped 
+  Errs = proplists:get_value(errors, DG).
+
+  %% List of files deduped
+  Deduped = proplists:get_value(deduped, DG).
+#+END_SRC

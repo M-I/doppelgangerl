@@ -1,0 +1,65 @@
+* Module
+#+BEGIN_SRC erlang :tangle src/doppelgangerl.erl :mkdirp yes
+  %% Licensed under the Apache License, Version 2.0 (the "License"); you may
+  %% not use this file except in compliance with the License. You may obtain
+  %% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
+  %%
+  %% Unless required by applicable law or agreed to in writing, software
+  %% distributed under the License is distributed on an "AS IS" BASIS,
+  %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  %% See the License for the specific language governing permissions and
+  %% limitations under the License.
+  %%
+  %% @author Marc Igeleke
+  %% @copyright 2019 Marc Igeleke
+  %% @doc Find duplicates in a directory.
+  -module(doppelgangerl).
+  -export([dedupe/1]).
+
+  %% @spec (Dir::file:filename_all()) -> [{dupes, list()}, {errors,list()}, {deduped, list()}]
+  dedupe(Dir) ->
+      dedupe(Dir, ".*").
+
+  dedupe(Dir, RegExp) ->
+      [Dupes, Errors] = filelib:fold_files(Dir, RegExp, true, fun do_dedupe/2, [[],[]]),
+      Deduped = [case DG of
+		     {Dgst, dupes} ->
+			 {Dgst, proplists:get_value(Dgst, Dupes)};
+		     Unique ->
+			 Unique
+		 end || DG <- get()],
+      {doppelgangerls, [{dupes, Dupes},
+			{errors, Errors},
+			{deduped, Deduped}]}.
+
+  do_dedupe(File, [Dupes, Errs] = Acc) ->
+      case file_crypto:hash(sha512, File) of
+	  {error, _} = Err -> [Dupes, [{Err, File}|Errs]];
+	  Dgst ->
+	      case get(Dgst) of
+		  undefined -> put(Dgst,File),
+			       Acc;
+		  dupes -> [[{Dgst,File}|Dupes], Errs];
+		  DupeFile -> put(Dgst, dupes),
+			      [[{Dgst, DupeFile}, {Dgst, File} | Dupes], Errs]
+	      end
+      end.
+#+END_SRC
+
+* Build
+** Makefiles
+#+BEGIN_SRC makefile :tangle Makefile
+  PROJECT = doppelgangerl
+  PROJECT_VERSION = 1.0.0
+
+  DEPS = file_crypto
+
+  dep_file_crypto = git https://github.com/M-I/file_crypto
+
+  include erlang.mk
+#+END_SRC
+
+#+BEGIN_SRC sh
+  // GET erlang.mk if necessary
+  (ls erlang.mk >> /dev/null 2>&1 ) || curl -O https://erlang.mk/erlang.mk
+ #+END_SRC
